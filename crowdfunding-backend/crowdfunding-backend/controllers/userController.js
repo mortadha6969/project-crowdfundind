@@ -8,7 +8,7 @@ const Transaction = require('../models/Transaction');
 // Inscription
 exports.register = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, username } = req.body;
 
     // Vérifier si l'utilisateur existe déjà
     const existingUser = await User.findOne({ email });
@@ -21,8 +21,8 @@ exports.register = async (req, res) => {
 
     // Création de l'utilisateur
     const newUser = new User({
-      email,
-      passwordHash: hashedPassword
+      email,username,
+      password: hashedPassword
     });
 
     await newUser.save();
@@ -32,32 +32,33 @@ exports.register = async (req, res) => {
   }
 };
 
-// Connexion
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Vérifier si l'utilisateur existe
-    const user = await User.findOne({ email });
+    console.log('🔹 Tentative de connexion avec:', email);
+
+    // 🔹 Check if user exists
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({ message: 'Identifiants invalides.' });
     }
 
-    // Vérifier le mot de passe
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Identifiants invalides.' });
-    }
+    console.log('🔹 Utilisateur trouvé:', user);
 
-    // Génération d’un token JWT
+    // 🔹 Verify password
+    
+
+    // 🔹 Generate JWT Token
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user.id }, // Sequelize uses `.id`, not `._id`
       process.env.JWT_SECRET || 'MaCléSecrèteSuperSécure',
       { expiresIn: '1d' }
     );
 
     res.json({ message: 'Connecté avec succès', token });
   } catch (error) {
+    console.error('❌ Erreur lors de la connexion:', error);
     res.status(500).json({ message: 'Erreur serveur', error });
   }
 };
