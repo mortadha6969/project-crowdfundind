@@ -5,61 +5,54 @@ const User = require('../models/User');
 const Campaign = require('../models/Campaign');
 const Transaction = require('../models/Transaction');
 
-// Inscription
 exports.register = async (req, res) => {
   try {
     const { email, password, username } = req.body;
 
     // Vérifier si l'utilisateur existe déjà
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ message: 'Cet email est déjà utilisé.' });
     }
 
     // Hachage du mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Création de l'utilisateur
-    const newUser = new User({
-      email,username,
+    console.log("hashedPassword",hashedPassword)
+    // Création de l'utilisateur avec Sequelize
+    const newUser = await User.create({
+      email,
+      username,
       password: hashedPassword
     });
 
-    await newUser.save();
-    res.status(201).json({ message: 'Utilisateur créé avec succès.' });
+    res.status(201).json({ message: 'Utilisateur créé avec succès.', user: newUser });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error });
   }
 };
 
+
+
+
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('🔹 Tentative de connexion avec:', email);
-
-    // 🔹 Check if user exists
     const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(400).json({ message: 'Identifiants invalides.' });
-    }
+    if (!user) return res.status(401).json({ message: 'Invalid email or password' });
 
-    console.log('🔹 Utilisateur trouvé:', user);
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Invalid email or password' });
 
-    // 🔹 Verify password
-    
-
-    // 🔹 Generate JWT Token
     const token = jwt.sign(
-      { userId: user.id }, // Sequelize uses `.id`, not `._id`
-      process.env.JWT_SECRET || 'MaCléSecrèteSuperSécure',
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'secretKey',
       { expiresIn: '1d' }
     );
 
-    res.json({ message: 'Connecté avec succès', token });
+    res.json({ token, user });
   } catch (error) {
-    console.error('❌ Erreur lors de la connexion:', error);
-    res.status(500).json({ message: 'Erreur serveur', error });
+    res.status(500).json({ message: error.message });
   }
 };
 
